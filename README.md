@@ -6,7 +6,7 @@ scripts for making and analyzing ubdl gen2 ntuples
 ### dependencies
 
 * ROOT is needed for all scripts
-* The ubdl software environment must be setup to run the ntuple maker (`make_dlgen2_flat_ntuples.py`). See the quick start section fo the readme in the [ubdl repository](https://github.com/LArbys/ubdl) for instructions
+* The ubdl software environment must be setup to run the ntuple maker (`make_dlgen2_flat_ntuples.py`). See the quick start section of the readme in the [ubdl repository](https://github.com/LArbys/ubdl) for instructions
 
 ### first time setup
 
@@ -18,6 +18,43 @@ source compile_wirecell_fiducial_volume.sh
 ```
 
 This only needs to be done once after first downloading the repository.
+
+## Running the ntuple maker
+
+The `make_dlgen2_flat_ntuples.py` script produces ntuple files from input larflowreco files and merged_dlreco files. It allows or requires the following options:
+
+* __-f__/__--files__: The input larflowreco files that will be processed (__required__). You can either provide a text file where each line in the file is the full path to a larflowreco file, the path to a single larflowreco file, or a space separated list of larflowreco files.
+* __-t__/__--truth__: The merged_dlreco files matching the input larflowreco files (__required__). This must be a text file where each line is the full path to a merged_dlreco file. This text file can include a full list of all merged_dlreco files in some sample, it does not need to be restricted to the merged_dlreco files that match the larflowreco files supplied with --files. The script will go through the input merged_dlreco files and find the ones with the same hash identifier as the input larflowreco files.
+* __-w__/__--weightfile__: The path to the file (a pickled python dictionary) containing the cross section weights (__required for MC inputs__). Check the `event_weighting` dir to see if there is a weights file there that matches your sample. If not, there are instructions in that directory on how to create one. This should not be supplied for data input but must be supplied for MC input.
+* __-m__/__--model_path__: The path to the pytorch checkpoint file containing the weights to run the LArPID network. The path to the most recent weights file on the Tufts cluster is `/cluster/tufts/wongjiradlabnu/mrosen25/prongCNN/models/checkpoints/run3bOverlays_quadTask_plAll_2inChan_5ClassHard_minHit10_b64_oneCycleLR_v2me05_noPCTrainOrVal/ResNet34_recoProng_5class_epoch20.pt`
+* __-d__/__--device__: The device to run the LArPID network on ("cpu" or "gpu"). Default: "cpu"
+* __-mc__/__--isMC__: A flag that __must be supplied when running over MC input__
+* __-ana__/__--dlana_input__: A flag that __must be supplied when running over dlana input__ (truth files that begin with "merged_dlana" instead of "merged_dlreco"
+* __-o__/__--outfile__: The name of the output ntuple file (default: "dlgen2_flat_ntuple.root")
+* __-nkp__/__--noKeypoints__: A flag, when supplied the keypoint variables will not be saved in the output ntuple. __Required when running over larflowreco files with version < v2_me_06__. (Older larflowreco files don't have the keypoint info.)
+* __--multiGPU__: A flag, supply to run LArPID network on multiple gpus. (This really isn't necessary, the network runs pretty quickly on just a cpu.)
+
+Two scripts are provided in this repository that provide an example of how to submit ntuple maker jobs on the Tufts cluster using slurm:
+* tufts_submit_ntuple_job_example.sh
+* tufts_run_ntuple_maker.sh
+
+We produce ntuple files as part of the standard processing, but if you want to add a variable or two and reprocess the ntuples from existing larflowreco files, then you can take a look at these scripts for an example on how that can be done. If you'd like to use them, then __first copy__ both scripts and then edit the following lines:
+* tufts_submit_ntuple_job_example.sh
+    * line 18: supply the full file path to a text file containing all the larflowreco files you'd like to process. Each line should be the full path to one larflowreco file
+    * line 19: supply the full file path to a text file containing all the merged_dlreco or merged_dlana files that match the larflowreco files. Each line should be the full path to one merged_dlreco or merged_dlana file
+    * line 13: change this NFILES variable to the number of files you want to process per job. I usually do 100
+    * lines 3-11: edit the slurm sbatch options as necessary. You'll want to at least change the `--array` option, which dictates how many jobs are submitted. This option works with the NFILES variable on line 13 to determine which larflowreco files from the line 18 list are processed in which job. For example, using `--array=0-3,6` and `NFILES=100` will submit five jobs (with arrayIDs 0, 1, 2, 3, and 6), each of which will process 100 files given by those specified on lines arrayID\*NFILES + 1 to arrayID\*NFILES + NFILES.
+    * line 17: provide the full file path to the tufts_run_ntuple_maker.sh script
+    * line 20: the filename (not path!) of the weight file in the event_weighting directory that will get passed to `make_dlgen2_flat_ntuples.py` with the `-w` option (see above).
+    * line 21: supply an output tag that will be included in output file names
+    * line 26: edit, as necessary, the end of this line where you see `-mc`. In this example, `-mc` (and any other options you might add to the end of the source command after it) is passed to the `make_dlgen2_flat_ntuples.py` script as a flag. So, for example, if you were running over data, you would remove `-mc`. If you were running over data with merged_dlana input and you didn't want to save keypoint information, you would change `-mc` to `-ana -nkp`.
+* tufts_run_ntuple_maker.sh
+    * line 5: supply the path to your copy of this gen2ntuple repository
+    * line 22: supply the path to your compiled and installed copy of the ubdl repository
+    * line 41: supply the directory you would like output files copied to
+    * line 42: supply the directory you would like log files copied to
+
+All of the files processed in a single job will, at the end, get merged together before being copied over to the specified output directory. So each job will produce one output file named make_dlgen2_flat_ntuples_OUTTAG_output_ARRAYID.root and one log file (in addition to the usual slurm .out file) named make_dlgen2_flat_ntuples_OUTTAG_ARRAYID.log, where OUTTAG is the output tag (specified on line 21 of tufts_submit_ntuple_job_example.sh) and ARRAYID is the slurm array ID (all specified on line 8 of tufts_submit_ntuple_job_example.sh will be run) of the job. You can use the root `hadd` command to merge the output root files
 
 ## using ntuple files
 
