@@ -10,7 +10,7 @@ scripts for making and analyzing ubdl gen2 ntuples
 
 ### first time setup
 
-Before running the ntuple maker, you need to compile a C++ script in the `helpers` directory (this creates a shard c++ library used for the fiducial volume calculation). To do this, simply run:
+Before running the ntuple maker, you need to compile a C++ script in the `helpers` directory (this creates a shared C++ library used for the fiducial volume calculation). To do this, simply run:
 
 ```
 cd helpers/
@@ -23,11 +23,11 @@ This only needs to be done once after first downloading the repository.
 
 See the following section for full documentation of all ntuple variables.
 
-The ntuples are flat ROOT files containing information about the reconstructed neutrino interaction and truth informatibout the simulated neutrino interaction (for Monte Carlo samples). If you are new to ROOT, this [ROOT Guide For Beginners](https://root.cern.ch/root/htmldoc/guides/primer/ROOTPrimerLetter.pdf) provides a nice, detailed introduction.
+The ntuples are flat ROOT files containing information about reconstructed neutrino interactions and (for Monte Carlo samples) truth information about the simulated neutrino interactions. If you are new to ROOT, this [ROOT Guide For Beginners](https://root.cern.ch/root/htmldoc/guides/primer/ROOTPrimerLetter.pdf) provides a nice, detailed introduction.
 
 For Monte Carlo samples, the ntuples also contain information about the number of protons on target (POT) that would produce the full sample contained in the ntuple.
 
-I have provided an example script, `example_ntuple_analysis_script.py`, that you can take a look at to see how to use the POT data and pull some basic information out of the ntuple files using ROOT in python (PyROOT). This script takes as input an ntuple file made from an MC bnb nu overlay sample, makes histograms of true and reconstructed neutrino and primary muon energies, scales the output histograms to the number of events expected for 6.67e+20 POT, and writes these histograms to an output root file.
+I have provided an example script, `example_ntuple_analysis_script.py`, that you can take a look at to see how to use the POT data and how to pull some basic information out of the ntuple files using ROOT in python (PyROOT). This script takes as input an ntuple file made from an MC bnb nu overlay sample, makes histograms of true and reconstructed neutrino and primary muon energies, scales the output histograms to the number of events expected for 6.67e+20 POT, and writes these histograms to an output root file.
 
 To run:
 ```
@@ -37,7 +37,7 @@ python example_ntuple_analysis_script.py -i input_ntuple_file.root -o output_his
 You can then view the histograms in `output_histogram_file.root` in e.g. a ROOT TBrowser:
 ```
 root -l output_histogram_file.root
-new TBrowser
+root [0] new TBrowser
 ```
 
 ## ntuple variable documentation
@@ -82,7 +82,7 @@ Variables:
 * __totPOT__: total POT for the file represented by this entry
 * __totGoodPOT__: total good POT for the file represented by this entry
 
-I am not entirely sure about the distinction between "total POT" and "total good POT," however, the two are always the same in every sample I've looked at. In the event that is ever not the case, I would recomment using `totGoodPOT` and ignoring the `totPOT` entries.
+I am not entirely sure what the distinction is between the "total POT" and "total good POT" reported in merged_dlreco files, but the two are always the same in every sample I've looked at. I would recomment using `totGoodPOT` and ignoring the `totPOT` entries.
 
 ### EventTree file/event identification variables:
 
