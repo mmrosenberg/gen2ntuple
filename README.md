@@ -6,7 +6,17 @@ scripts for making and analyzing DL Gen2 ntuples
 ### dependencies
 
 * ROOT is needed for all scripts
+* pytorch is needed for the LArPID network
 * The ubdl software environment must be setup to run the ntuple maker (`make_dlgen2_flat_ntuples.py`). See the quick start section of the readme in the [ubdl repository](https://github.com/LArbys/ubdl) for instructions
+
+ROOT, pytorch, and all of the dependencies needed to compile the ubdl repository are available in a singularity container Taritree has prepared, which you can find on the Tufts cluster at `/cluster/tufts/wongjiradlabnu/larbys/larbys-container/singularity_minkowskiengine_u20.04.cu111.torch1.9.0_comput8.sif`. To load the container at Tufts, do:
+
+```
+module load singularity/3.5.3
+singularity shell --bind /cluster/tufts/wongjiradlabnu:/cluster/tufts/wongjiradlabnu,/cluster/tufts/wongjiradlab:/cluster/tufts/wongjiradlab /cluster/tufts/wongjiradlabnu/larbys/larbys-container/singularity_minkowskiengine_u20.04.cu111.torch1.9.0_comput8.sif
+```
+
+Then enter `bash` when prompted to select a bash shell for the container. 
 
 ### first time setup
 
