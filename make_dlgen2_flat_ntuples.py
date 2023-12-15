@@ -41,7 +41,7 @@ args = parser.parse_args()
 
 sys.path.append(args.model_path[:args.model_path.find("/checkpoints")])
 from models_instanceNorm_reco_2chan_quadTask import ResBlock, ResNet34
-from datasets_reco_5ClassHardLabel_quadTask import mean, std
+from normalization_constants import mean, std
 
 if args.isMC and args.weightfile=="none":
   sys.exit("Must supply weight file for MC input. Exiting...")
