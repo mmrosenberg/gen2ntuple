@@ -101,6 +101,11 @@ Please update this readme if you add new variables!
 * __MC__: Monte Carlo simulation
 * __CC__: charged current
 * __NC__: neutral current
+* __QE__: quasi-elastic
+* __Res__: resonance production
+* __DIS__: deep inelastic scattering
+* __Coh__: coherent 
+* __MEC__: meson exchange current
 * __POT__: protons on target
 * __PDG code__: particle data group code, an integer unique to every type of particle
 * __SCE__: space charge effect
@@ -151,6 +156,8 @@ These variables are not included for data.
 * __trueNuE__: true energy in GeV of simulated neutrino.
 * __trueNuPDG__: PDG code of simulated neutrino.
 * __trueNuCCNC__: integer indicating if simulated neutrino interaction is CC or NC. 0 for CC, 1 for NC.
+* __trueNuMode__: integer indicating the simulated neutrino interaction mode: 0 for QE, 1 for Res, 2 for DIS, 3 for Coh, 10 for MEC.
+* __trueNuIntrxnType__: integer indicating the simulated neutrino interaction type. A list of categories corresponding to values can be found [here](https://github.com/NuTufts/larlite/blob/7aadee7f8a0c72429774578539842e8d4936d457/larlite/Base/MCConstants.h). 
 * __trueVtx{X,Y,Z}__: SCE corrected X,Y,Z coordinates (in cm) of simulated neutrino interaction vertex.
 * __trueLepE__: true energy in GeV of primary lepton.
 * __trueLepPDG__: PDG code of simulated primary lepton.
