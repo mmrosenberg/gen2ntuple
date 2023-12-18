@@ -3,10 +3,14 @@ import sys, argparse
 import numpy as np
 import ROOT as rt
 
+from helpers.larflowreco_ana_funcs import getCosThetaGravVector
+
 
 parser = argparse.ArgumentParser("Make energy histograms from a bnb nu overlay ntuple file")
 parser.add_argument("-i", "--infile", type=str, required=True, help="input ntuple file")
 parser.add_argument("-o", "--outfile", type=str, default="example_ntuple_analysis_script_output.root", help="output root file name")
+parser.add_argument("-fc", "--fullyContained", action="store_true", help="only consider fully contained events")
+parser.add_argument("-ncc", "--noCosmicCuts", action="store_true", help="don't apply cosmic rejection cuts")
 args = parser.parse_args()
 
 #needed for proper scaling of error bars:
@@ -65,55 +69,50 @@ for i in range(eventTree.GetEntries()):
   if not (eventTree.foundVertex == 1 and eventTree.vtxIsFiducial == 1):
     continue
 
-  #since we'll be plotting reco muon energy using range,
+  #since we'll be plotting reco muon energy using range, then if requested:
   #skip events where all prongs attached to reco neutrino vertex are not contained inside the fiducial volume
-  if not (eventTree.vtxContainment == 2):
+  if args.fullyContained and not (eventTree.vtxContainment == 2):
     continue
 
   #skip events where no reco muon was identified by LArPID
+  #identify the reco muon with the highest muon score if more than one is present
   foundMuon = False
+  muon_iT = -1 #we will be able to access track variables for selected reco muon using this index
+  max_muonScore = -99.
   for iT in range(eventTree.nTracks):
     #skip if track wasn't classified by LArPID or was attached as secondary
     if eventTree.trackIsSecondary[iT] == 1 or eventTree.trackClassified[iT] != 1:
       continue
+    #look at track's that were classified by LArPID as muons
     if eventTree.trackPID[iT] == 13:
       foundMuon = True
-      break
+      if eventTree.trackMuScore[iT] > max_muonScore:
+        max_muonScore = eventTree.trackMuScore[iT]
+        muon_iT = iT
   if not foundMuon:
     continue
 
-  #get true muon energy by looping over primary particles
-  trueMuE = -1.
-  for iP in range(eventTree.nTruePrimParts):
-    if abs(eventTree.truePrimPartPDG[iP]) == 13:
-      #we found the true primary muon
-      trueMuE = eventTree.truePrimPartE[iP]
-      break
-
-  #this should never happen as we skipped non CCnumu events, but it's good to do sanity checks:
-  if trueMuE < 0.:
-    print("ERROR: true primary muon not found in true CCnumu interaction")
-    continue
-
-  #get reco muon energy by finding track with largest LArPID muon score
-  #this very likely isn't sufficient for a good reco muon selection, this is just to provide an example
-  recoMuE = -1.
-  bestMuScore = -999.
-  for iT in range(eventTree.nTracks):
-    #skip if track wasn't classified by LArPID or was attached as secondary
-    if eventTree.trackIsSecondary[iT] == 1 or eventTree.trackClassified[iT] != 1:
+  #apply cosmic ray rejection cuts unless user requested that we not
+  if not args.noCosmicCuts:
+    #skip events where all hits overlap with tagged cosmic rays
+    if eventTree.vtxFracHitsOnCosmic >= 1.:
       continue
-    #skip if track wasn't identified as a muon
-    if eventTree.trackPID[iT] != 13:
+    #skip events for which the reco nuetrino vertex doesn't have a high neutrino keypoint score
+    if eventTree.vtxScore < 0.9:
       continue
-    if eventTree.trackMuScore[iT] > bestMuScore:
-      bestMuScore = eventTree.trackMuScore[iT]
-      recoMuE = eventTree.trackRecoE[iT]/1000. #convert from MeV to GeV
-
-  #this should never happen as we skipped events without an identified muon track, but it's good to do sanity checks:
-  if recoMuE < 0.:
-    print("ERROR: reco muon not found after attempting to skip events with no reco muon tracks")
-    continue
+    #skip events where the reco muon is upwards (against gravity) going
+    # neutrino vertices are sometimes reconstructed from cosmic michel decays at the end of the muon track
+    # this causes the cosmic muon to be mis-reconstructed as upwards going rather than downwards going
+    cosMuonAngleToGrav = getCosThetaGravVector(eventTree.trackStartDirX[muon_iT],
+     eventTree.trackStartDirY[muon_iT], eventTree.trackStartDirZ[muon_iT])
+    if cosMuonAngleToGrav < -0.9:
+      continue
+    #skip events where reco muon is not classified as a primary particle
+    if eventTree.trackProcess[muon_iT] != 0:
+      continue
+    #skip events where reco muon has a high "secondary particle with neutral parent" score
+    if eventTree.trackFromNeutralScore[muon_iT] > -3.5:
+      continue
 
   #fill histograms, weighting each event by cross-section weight to allow for proper POT scaling
 
@@ -122,9 +121,10 @@ for i in range(eventTree.GetEntries()):
   #fill reco neutrino energy histogram, convert from MeV to GeV
   h_recoNuE.Fill(eventTree.recoNuE/1000., eventTree.xsecWeight)
   #fill true muon energy histogram
-  h_trueMuE.Fill(trueMuE, eventTree.xsecWeight)
-  #fill reco muon energy histogram
-  h_recoMuE.Fill(recoMuE, eventTree.xsecWeight)
+  #since we are looking at true CCnumu events, we can get this from the trueLepE variable
+  h_trueMuE.Fill(eventTree.trueLepE, eventTree.xsecWeight)
+  #fill reco muon energy histogram, convert from MeV to GeV
+  h_recoMuE.Fill(eventTree.trackRecoE[muon_iT]/1000., eventTree.xsecWeight)
 
 #----- end of event loop ---------------------------------------------#
 

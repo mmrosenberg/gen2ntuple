@@ -79,7 +79,7 @@ The ntuples are flat ROOT files containing information about reconstructed neutr
 
 For Monte Carlo samples, the ntuples also contain information about the number of protons on target (POT) that would produce the full sample contained in the ntuple.
 
-I have provided an example script, `example_ntuple_analysis_script.py`, that you can take a look at to see how to use the POT data and how to pull some basic information out of the ntuple files using ROOT in python (PyROOT). This script takes as input an ntuple file made from an MC bnb nu overlay sample, makes histograms of true and reconstructed neutrino and primary muon energies, scales the output histograms to the number of events expected for 6.67e+20 POT, and writes these histograms to an output root file.
+I have provided an example script, `example_ntuple_analysis_script.py`, that you can take a look at to see how to use the POT data and how to pull some basic information out of the ntuple files using ROOT in python (PyROOT). This script takes as input an ntuple file made from an MC bnb nu overlay sample, applies an inclusive CCnumu selection, makes histograms of true and reconstructed neutrino and primary muon energies, scales the output histograms to the number of events expected for 6.67e+20 POT, and writes these histograms to an output root file. You can supply the flags `--fullyContained` to filter out events that are not fully contained inside the fiducial volume and `--noCosmicCuts` to skip the cosmic rejection cuts in the CCnumu selection.
 
 To run:
 ```

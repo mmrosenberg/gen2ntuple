@@ -128,6 +128,15 @@ def getCosThetaGravShower(showerTrunk):
                           showerTrunk.VertexDirection().Z())
   return getCosTVecAngle(showerDir, gravDir)
 
+def getCosThetaBeamVector(x, y, z): 
+  gravDir = rt.TVector3(0, 0, 1)
+  vecDir = rt.TVector3(x, y, z)
+  return getCosTVecAngle(vecDir, gravDir)
+
+def getCosThetaGravVector(x, y, z): 
+  gravDir = rt.TVector3(0, -1, 0)
+  vecDir = rt.TVector3(x, y, z)
+  return getCosTVecAngle(vecDir, gravDir)
 
 def getSCECorrectedPos(point, sce):
   offset = sce.GetPosOffsets(point.X(), point.Y(), point.Z())
