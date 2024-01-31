@@ -36,6 +36,8 @@ parser.add_argument("-mc", "--isMC", help="running over MC input", action="store
 parser.add_argument("-ana", "--dlana_input", help="using merged_dlana input files", action="store_true")
 parser.add_argument("-o", "--outfile", type=str, default="dlgen2_flat_ntuple.root", help="output file name")
 parser.add_argument("-nkp","--noKeypoints", action="store_true", help="don't save keypoint info")
+parser.add_argument("--ignoreWeights", action="store_true", help="don't look up xsec weights, set to 1 and process all MC events (default: lookup xsec weights and exit with error if not found)")
+parser.add_argument("--skipNoWeightEvts", action="store_true", help="skip MC events if we can't find xsec weights but continue processing (default: exit with error)")
 parser.add_argument("--multiGPU", action="store_true", help="use multiple GPUs")
 args = parser.parse_args()
 
@@ -43,7 +45,7 @@ sys.path.append(args.model_path[:args.model_path.find("/checkpoints")])
 from models_instanceNorm_reco_2chan_quadTask import ResBlock, ResNet34
 from normalization_constants import mean, std
 
-if args.isMC and args.weightfile=="none":
+if args.isMC and args.weightfile=="none" and not args.ignoreWeights:
   sys.exit("Must supply weight file for MC input. Exiting...")
 
 reco2Tag = "merged_dlreco_"
@@ -577,7 +579,8 @@ if args.isMC:
 if args.isMC:
   totPOT_ = 0.
   totGoodPOT_ = 0.
-  weights = Weights(args.weightfile)
+  if not args.ignoreWeights:
+    weights = Weights(args.weightfile)
 
 
 #-------- begin file loop -----------------------------------------------------#
@@ -639,13 +642,19 @@ for filepair in files:
       if not isFiducialWCSCE(trueVtxPos):
         continue
 
-      try:
-        xsecWeight[0] = weights.get(kpst.run, kpst.subrun, kpst.event)
-        if isinf(xsecWeight[0]):
-          continue
-      except:
-        print("WARNING: Couldn't find weight for run %i, subrun %i, event %i in %s!!!"%(kpst.run, kpst.subrun, kpst.event, args.weightfile))
-        continue
+      if args.ignoreWeights:
+        xsecWeight[0] = 1.
+      else:
+        try:
+          xsecWeight[0] = weights.get(kpst.run, kpst.subrun, kpst.event)
+          if isinf(xsecWeight[0]):
+            continue
+        except:
+          if args.skipNoWeightEvts:
+            print("WARNING: Couldn't find xsec weight for run %i, subrun %i, event %i in %s!!!"%(kpst.run, kpst.subrun, kpst.event, args.weightfile))
+            continue
+          else:
+            sys.exit("ERROR: Couldn't find xsec weight for run %i, subrun %i, event %i in %s!!!"%(kpst.run, kpst.subrun, kpst.event, args.weightfile))
 
       if nuInt.CCNC() == 0:
         trueLepPDG[0] = lep.PdgCode()

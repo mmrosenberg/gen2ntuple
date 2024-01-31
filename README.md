@@ -42,6 +42,8 @@ The `make_dlgen2_flat_ntuples.py` script produces ntuple files from input larflo
 * __-ana__ / __--dlana_input__: A flag that __must be supplied when running over dlana input__ (truth files that begin with "merged_dlana" instead of "merged_dlreco"
 * __-o__ / __--outfile__: The name of the output ntuple file (default: "dlgen2_flat_ntuple.root")
 * __-nkp__ / __--noKeypoints__: A flag, when supplied the keypoint variables will not be saved in the output ntuple. __Required when running over larflowreco files with version < v2_me_06__. (Older larflowreco files don't have the keypoint info.)
+* __--ignoreWeights__: A flag, if supplied don't look up xsec weights for MC events. Set weights to 1 and process all events. (Default: attempt to lookup xsec weights and exit with error if not found)
+* __--skipNoWeightEvts__: A flag, if supplied: print a warning, skip the event, and continue processing when we can't find an xsec weight for an MC event. (Default: attempt to lookup xsec weights and exit with error if not found)
 * __--multiGPU__: A flag, supply to run LArPID network on multiple gpus. (This really isn't necessary, the network runs pretty quickly on just a cpu.)
 
 There are two scripts included in this repository to provide an example of how to submit ntuple maker jobs on the Tufts cluster using slurm:
