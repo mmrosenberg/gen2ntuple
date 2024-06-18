@@ -33,9 +33,11 @@ for i in range(potTree.GetEntries()):
 
 #define histograms to fill
 #we will write histograms to output file for:
-neutralPhotonHist = rt.TH1F("neutralPhotonHist", "Energy of NCC events with secondary photons",30,0,6)
-
-
+noPhotonHist = rt.TH1F("noPhotonHist", "Energy of NC events with no observed secondary photons (photon inferred due to other particles present)",60,0,6)
+onePhotonHist = rt.TH1F("onePhotonHist", "Energy of NC events with one secondary photon",60,0,6)
+twoPhotonHist = rt.TH1F("twoPhotonHist", "Energy of NC events with two secondary photons",60,0,6)
+threePhotonHist = rt.TH1F("threePhotonHist", "Energy of NC events with three secondary photons",60,0,6)
+morePhotonHist = rt.TH1F("morePhotonHist", "Energy of NC events with more than three secondary photons", 60, 0, 6)
 
 #set histogram axis titles and increase line width
 def configureHist(h):
@@ -43,7 +45,20 @@ def configureHist(h):
   h.GetXaxis().SetTitle("energy (GeV)")
   h.SetLineWidth(2)
   return h
-neutralPhotonHist = configureHist(neutralPhotonHist)
+
+#Scale the histograms
+noPhotonHist = configureHist(noPhotonHist)
+onePhotonHist = configureHist(onePhotonHist)
+twoPhotonHist = configureHist(twoPhotonHist)
+threePhotonHist = configureHist(threePhotonHist)
+morePhotonHist = configureHist(morePhotonHist)
+
+#Set detector volumes
+xMin, xMax = 0, 256
+yMin, yMax = -116.5, 116.5
+zMin, zMax = 0, 1036
+fiducialWidth = 10
+
 #h_trueMuE = configureHist(h_trueMuE)
 #h_recoMuE = configureHist(h_recoMuE)
 
@@ -57,6 +72,11 @@ for i in range(eventTree.GetEntries()):
   if eventTree.trueNuCCNC != 1:
     continue
 
+  if eventTree.trueVtxX <= (xMin + fiducialWidth) or eventTree.trueVtxX >= (xMax - fiducialWidth) or \
+    eventTree.trueVtxY <= (yMin + fiducialWidth) or eventTree.trueVtxY >= (yMax - fiducialWidth) or \
+    eventTree.trueVtxZ <= (zMin + fiducialWidth) or eventTree.trueVtxZ >= (zMax - fiducialWidth):
+    continue
+        
   #Filter out cosmic cuts, because that seems like the right thing to do
   #skip events where all hits overlap with tagged cosmic rays
   if eventTree.vtxFracHitsOnCosmic >= 1.:
@@ -65,39 +85,60 @@ for i in range(eventTree.GetEntries()):
   #Determine whether there are photons as secondary particles
   photonInSecondary = False
   primList = []
+  #Check if Neutral Pion and Kaon in primaries - must be a photon if so
   if 111 in eventTree.truePrimPartPDG or 311 in eventTree.truePrimPartPDG:
     photonInSecondary = True
   else:
+  #Create a list of prime particle Track IDs
     for x in range(len(eventTree.trueSimPartTID)):
       if eventTree.trueSimPartTID[x] == eventTree.trueSimPartMID[x]:
         primList.append(eventTree.trueSimPartTID[x])
+  #Iterate through to find photons
     for x in range(len(eventTree.trueSimPartPDG)):
       if eventTree.trueSimPartPDG[x] == 22:
+  #Check for parent particle in the primary list
         if eventTree.trueSimPartMID[x] in primList:
           photonInSecondary = True
-#        elif eventTree.trueSimPart{X,Y,Z}[x] == eventTree.trueVtx{X,Y,Z}:
-#          photonInSecondary = True
+  #Check if the photon has coordinates exactly equal to that of the event vertex
+        if abs(eventTree.trueSimPartX[x] - eventTree.trueVtxX) <= 0.15 and abs(eventTree.trueSimPartY[x] - eventTree.trueVtxY) <= 0.15 and abs(eventTree.trueSimPartZ[x] -eventTree.trueVtxZ) <= 0.15:
+          photonInSecondary = True
+  #Discard event unless a secondary photon is found
   if photonInSecondary == False:
     continue
 
 
-  #Filter out cosmic cuts, because that seems like the right thing to do
-  #skip events where all hits overlap with tagged cosmic rays
-  if eventTree.vtxFracHitsOnCosmic >= 1.:
-    continue
-
-
-
-  #fill histograms, weighting each event by cross-section weight to allow for proper POT scaling
-
-  #fill our histogram using energy
-  neutralPhotonHist.Fill(eventTree.trueNuE, eventTree.xsecWeight)
+  #Count the photons to determine histogram sorting
+  photonCount = 0
+  for x in eventTree.trueSimPartPDG:
+    if x == 22:
+      photonCount += 1
+  #fill our histogram using energy based on photon count
+  if photonCount == 0:
+    noPhotonHist.Fill(eventTree.trueNuE, eventTree.xsecWeight)
+  elif photonCount == 1:
+    onePhotonHist.Fill(eventTree.trueNuE, eventTree.xsecWeight)
+  elif photonCount ==2:
+    twoPhotonHist.Fill(eventTree.trueNuE, eventTree.xsecWeight)
+  elif photonCount == 3:
+    threePhotonHist.Fill(eventTree.trueNuE, eventTree.xsecWeight)
+  elif photonCount > 3:
+    morePhotonHist.Fill(eventTree.trueNuE, eventTree.xsecWeight)
 
 #----- end of event loop ---------------------------------------------#
 
 #scale histograms to target POT
-neutralPhotonHist.Scale(targetPOT/ntuplePOTsum)
+noPhotonHist.Scale(targetPOT/ntuplePOTsum)
+onePhotonHist.Scale(targetPOT/ntuplePOTsum)
+twoPhotonHist.Scale(targetPOT/ntuplePOTsum)
+threePhotonHist.Scale(targetPOT/ntuplePOTsum)
+morePhotonHist.Scale(targetPOT/ntuplePOTsum)
+
+
 
 #create output root file and write histograms to file
 outFile = rt.TFile(args.outfile, "RECREATE")
-neutralPhotonHist.Write()
+noPhotonHist.Write()
+onePhotonHist.Write()
+twoPhotonHist.Write()
+threePhotonHist.Write()
+morePhotonHist.Write()
