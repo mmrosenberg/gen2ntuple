@@ -1,4 +1,5 @@
 
+
 import sys, argparse
 import numpy as np
 import ROOT as rt
@@ -14,7 +15,7 @@ parser.add_argument("-ncc", "--noCosmicCuts", action="store_true", help="don't a
 args = parser.parse_args()
 
 #needed for proper scaling of error bars:
-rt.TH1.SetDefaultSumw2(rt.kTRUE)
+#rt.TH1.SetDefaultSumw2(rt.kTRUE)
 
 #open input file and get event and POT trees
 ntuple_file = rt.TFile(args.infile)
@@ -33,7 +34,6 @@ for i in range(potTree.GetEntries()):
 
 #define histograms to fill
 #we will write histograms to output file for:
-noPhotonHist = rt.TH1F("noPhotonHist", "Energy of NC events with no observed secondary photons (photon inferred due to other particles present)",60,0,6)
 onePhotonHist = rt.TH1F("onePhotonHist", "Energy of NC events with one secondary photon",60,0,6)
 twoPhotonHist = rt.TH1F("twoPhotonHist", "Energy of NC events with two secondary photons",60,0,6)
 threePhotonHist = rt.TH1F("threePhotonHist", "Energy of NC events with three secondary photons",60,0,6)
@@ -47,7 +47,6 @@ def configureHist(h):
   return h
 
 #Scale the histograms
-noPhotonHist = configureHist(noPhotonHist)
 onePhotonHist = configureHist(onePhotonHist)
 twoPhotonHist = configureHist(twoPhotonHist)
 threePhotonHist = configureHist(threePhotonHist)
@@ -114,7 +113,7 @@ for i in range(eventTree.GetEntries()):
       photonCount += 1
   #fill our histogram using energy based on photon count
   if photonCount == 0:
-    noPhotonHist.Fill(eventTree.trueNuE, eventTree.xsecWeight)
+    continue
   elif photonCount == 1:
     onePhotonHist.Fill(eventTree.trueNuE, eventTree.xsecWeight)
   elif photonCount ==2:
@@ -127,18 +126,43 @@ for i in range(eventTree.GetEntries()):
 #----- end of event loop ---------------------------------------------#
 
 #scale histograms to target POT
-noPhotonHist.Scale(targetPOT/ntuplePOTsum)
 onePhotonHist.Scale(targetPOT/ntuplePOTsum)
 twoPhotonHist.Scale(targetPOT/ntuplePOTsum)
 threePhotonHist.Scale(targetPOT/ntuplePOTsum)
 morePhotonHist.Scale(targetPOT/ntuplePOTsum)
 
 
+#Create stack histogram, add others to it
+histStack = rt.THStack("histStack", "NC Histograms with Secondary Photons")
+
+onePhotonHist.SetLineColor(rt.kGreen)
+#onePhotonHist.SetFillColor(rt.kGreen)
+histStack.Add(onePhotonHist)
+
+twoPhotonHist.SetLineColor(rt.kRed)
+#twoPhotonHist.SetFillColor(rt.kOrange)
+histStack.Add(twoPhotonHist)
+
+threePhotonHist.SetLineColor(rt.kMagenta)
+#threePhotonHist.SetFillColor(rt.kMagenta)
+histStack.Add(threePhotonHist)
+
+morePhotonHist.SetLineColor(rt.kCyan)
+#morePhotonHist.SetFillColor(rt.kCyan)
+histStack.Add(morePhotonHist)
+
+legend = rt.TLegend(0.7, 0.7, 0.9, 0.9)  # (x1, y1, x2, y2) in NDC coordinates
+
+legend.AddEntry(onePhotonHist, "Energy of NC events with one secondary photon", "l")
+legend.AddEntry(twoPhotonHist, "Energy of NC events with two secondary photons", "l")
+legend.AddEntry(threePhotonHist, "Energy of NC events with three secondary photons", "l")
+legend.AddEntry(morePhotonHist, "Energy of NC events with four or more secondary photons", "l")
+
+histCanvas = rt.TCanvas()
+histStack.Draw("HIST")
+legend.Draw()
+rt.gPad.Update()
 
 #create output root file and write histograms to file
 outFile = rt.TFile(args.outfile, "RECREATE")
-noPhotonHist.Write()
-onePhotonHist.Write()
-twoPhotonHist.Write()
-threePhotonHist.Write()
-morePhotonHist.Write()
+histCanvas.Write()
