@@ -2,7 +2,11 @@
 
 JOBSTARTDATE=$(date)
 
-scriptDir="/cluster/tufts/wongjiradlabnu/azhang15/gen2ntuple"
+scriptDir="/cluster/tufts/wongjiradlabnu/twongj01/gen2/gen2ntuple"
+ubdlDir="/cluster/tufts/wongjiradlabnu/twongj01/gen2/ubdl"
+outDir="/cluster/tufts/wongjiradlabnu/twongj01/gen2/gen2ntuple/out"
+logDir="/cluster/tufts/wongjiradlabnu/twongj01/gen2/gen2ntuple/log"
+
 pythonScript="${scriptDir}/$1"
 
 kpsRecoFiles=$2
@@ -19,7 +23,7 @@ nfiles=$7
 
 echo "running array ID $SLURM_ARRAY_TASK_ID (sample output tag: $outTag) on node $SLURMD_NODENAME"
 
-ubdlDir="/cluster/tufts/wongjiradlabnu/azhang15/ubdl"
+
 source ${ubdlDir}/setenv_py3.sh
 source ${ubdlDir}/configure.sh
 export PYTHONPATH=${PYTHONPATH}:${scriptDir}
@@ -38,8 +42,6 @@ for n in $(seq $firstfile $lastfile); do
 done
 
 scriptName=`echo $1 | sed s/.py//g`
-outDir="/cluster/tufts/wongjiradlabnu/azhang15/gen2ntuple"
-logDir="/cluster/tufts/wongjiradlabnu/azhang15/gen2ntuple"
 logFile="${logDir}/${scriptName}_${outTag}_${SLURM_ARRAY_TASK_ID}.log"
 
 local_jobdir=`printf /tmp/run_selection_jobid%d_%04d ${SLURM_JOB_ID} ${SLURM_ARRAY_TASK_ID}`
