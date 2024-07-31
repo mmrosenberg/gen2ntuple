@@ -1,6 +1,19 @@
 
 import os,sys,argparse
 
+"""
+Script to make analysis ntuples for the uboone DL-gen2 reconstruction.
+
+See README.md in the repo https://github.com/NuTufts/gen2ntuple
+for definition of the different variables.
+
+It also runs the LArPID CNN to classify prongs.
+
+When provided metadata from the simulation, it also provides "truth" information about the neutrino interaction
+and it's particles.
+
+"""
+
 import ROOT as rt
 
 from larlite import larlite
@@ -63,6 +76,17 @@ else:
     files = getFiles(reco2Tag, larflowfiles, args.truth)
   else:
     files = getFiles(reco2Tag, args.files, args.truth)
+
+# ========================================================================
+# We load the ublarcvapp::MCTools::MCPixelPGraph class, which we can use
+# to get more accurate information about the true
+# energy deposition pattern left by electron and photon showers
+# ========================================================================
+if args.isMC:
+  print("load the MCPixelPGraph: provides functions to measure visible EDep in Image")
+  from ublarcvapp import ublarcvapp
+  mcpg = ublarcvapp.mctools.MCPixelPGraph()
+  mcpg.set_cluster_neutrino_particles(True)
 
 
 def addClusterCharge(iolcv, cluster, vertexPixels, vertexCharge, threshold):
@@ -236,6 +260,7 @@ wcoverlapvars = larflow.reco.NuSelWCTaggerOverlap()
 flowTriples = larflow.prep.FlowTriples()
 piKEestimator = pionRange2T()
 clusterFuncs = larflow.reco.ClusterFunctions()
+photonTruthMetrics = larflow.reco.ShowerTruthMetricsMaker()
 
 model = ResNet34(2, ResBlock, outputs=5)
 if "cuda" in args.device and args.multiGPU:
@@ -281,6 +306,7 @@ if args.isMC:
   trueVtxZ = array('f', [0.])
   trueLepE = array('f', [0.])
   trueLepPDG = array('i', [0])
+  # 'truePrim' variables relate to output from GENIE generator
   nTruePrimParts = array('i', [0])
   truePrimPartPDG = array('i', maxNParts*[0])
   truePrimPartX = array('f', maxNParts*[0.])
@@ -291,6 +317,11 @@ if args.isMC:
   truePrimPartPz = array('f', maxNParts*[0.])
   truePrimPartE = array('f', maxNParts*[0.])
   truePrimPartContained = array('i', maxNParts*[0])
+  # 'trueSim' variables relate to Geant4 particle tracking stage
+  # primaries are those that come from the GENIE generator stage
+  # exception are photons from neutral pions. Neutral pion
+  # lifetime is sort, so not in trusim variables.
+  # resulting photons are listed as secondaries in trueSim variables
   nTrueSimParts = array('i', [0])
   trueSimPartPDG = array('i', maxNParts*[0])
   trueSimPartTID = array('i', maxNParts*[0])
@@ -310,6 +341,10 @@ if args.isMC:
   trueSimPartEndY = array('f', maxNParts*[0.])
   trueSimPartEndZ = array('f', maxNParts*[0.])
   trueSimPartContained = array('i', maxNParts*[0])
+  trueSimPartPixelSumUplane = array('f', maxNParts*[0.])
+  trueSumPartPixelSumVplane = array('f', maxNParts*[0.])
+  trueSumPartPixelSumYplane = array('f', maxNParts*[0.])
+  
 recoNuE = array('f', [0.])
 foundVertex = array('i', [0])
 vtxX = array('f', [0.])
@@ -465,6 +500,10 @@ if args.isMC:
   eventTree.Branch("trueSimPartEndY", trueSimPartEndY, 'trueSimPartEndY[nTrueSimParts]/F')
   eventTree.Branch("trueSimPartEndZ", trueSimPartEndZ, 'trueSimPartEndZ[nTrueSimParts]/F')
   eventTree.Branch("trueSimPartContained", trueSimPartContained, 'trueSimPartContained[nTrueSimParts]/I')
+  eventTree.Branch("trueSimPartPixelSumUplane", trueSimPartPixelSumUplane, 'trueSimPartPixelSumUplane[nTrueSimParts]/F')
+  eventTree.Branch("trueSimPartPixelSumVplane", trueSimPartPixelSumVplane, 'trueSimPartPixelSumVplane[nTrueSimParts]/F')
+  eventTree.Branch("trueSimPartPixelSumYplane", trueSimPartPixelSumYplane, 'trueSimPartPixelSumYplane[nTrueSimParts]/F')
+  
 eventTree.Branch("recoNuE", recoNuE, 'recoNuE/F')
 eventTree.Branch("foundVertex", foundVertex, 'foundVertex/I')
 eventTree.Branch("vtxX", vtxX, 'vtxX/F')
@@ -620,6 +659,8 @@ for filepair in files:
 
     #print("reached entry:", ientry)
 
+    # clear mcpixelpgraph state
+    
     ioll.go_to(ientry)
     iolcv.read_entry(ientry)
     kpst.GetEntry(ientry)
@@ -633,13 +674,23 @@ for filepair in files:
 
     if args.isMC:
 
+      mcpg.clear()
+          
       mctruth = ioll.get_data(larlite.data.kMCTruth, "generator")
       nuInt = mctruth.at(0).GetNeutrino()
       lep = nuInt.Lepton()
       mcNuVertex = mcNuVertexer.getPos3DwSCE(ioll, sce)
       trueVtxPos = rt.TVector3(mcNuVertex[0], mcNuVertex[1], mcNuVertex[2])
 
+      # we build a graph of particles using the truth
+      # we also attempt to associate  true particle with the pixels in each plane
+      # where it deposited energy (or had a descendent who did).
+      mcpg.buildgraph( iolcv, ioll )
+
       if not isFiducialWCSCE(trueVtxPos):
+        # tmw 07/22/2024: do we want to remove out of FV events?
+        # you can still get incorrectly reconstructed neutrino interactions
+        # from such events -- not just cosmic events
         continue
 
       if args.ignoreWeights:
@@ -728,6 +779,20 @@ for filepair in files:
           trueSimPartEndY[iDS] = sceCorrectedEndPos.Y()
           trueSimPartEndZ[iDS] = sceCorrectedEndPos.Z()
           trueSimPartContained[iDS] = isFiducialWCSCE(sceCorrectedEndPos)
+
+          # mcpixelpgraph
+          plane_pixel_sums_v = mcpg.getParticlePixelSum( mcpart.TrackID() )
+          if mcpart.PdgCode()==22:
+            photon_edep_v = mcpg.getParticleEdepPos( mcpart.TrackID() )
+            trueSimPartEDepX[iDS] = photon_edep_v[0]
+            trueSimPartEDepY[iDS] = photon_edep_v[1]
+            trueSimPartEDepZ[iDS] = photon_edep_v[2]
+            photon_trunk_endpts_v = photonTruthMetrics.getPhotonTrunkLineSegment( mcpg, mcpart.TrackID() )
+            trueSimPartEndX[iDS] = photon_edep_v[0] + ( photon_trunk_endpts_v[3]-photon_trunk_endpts_v[0] )
+            trueSumPartEndY[iDS] = photon_edep_v[1] + ( photon_trunk_endpts_v[4]-photon_trunk_endpts_v[1] )
+            trueSumPartEndZ[iDS] = photon_edep_v[2] + ( photon_trunk_endpts_v[5]-photon_trunk_endpts_v[2] )
+            photon_trunk_pixsum_v = mcpg.getTruePhotonTrunkPlanePixelSums( mcpart.TrackID() )
+            
           iDS += 1
 
     #else: #from "if args.isMC"
