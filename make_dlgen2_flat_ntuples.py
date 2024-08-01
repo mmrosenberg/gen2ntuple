@@ -77,6 +77,8 @@ else:
   else:
     files = getFiles(reco2Tag, args.files, args.truth)
 
+ALLOW_SKIPS = False
+
 # ========================================================================
 # We load the ublarcvapp::MCTools::MCPixelPGraph class, which we can use
 # to get more accurate information about the true
@@ -90,7 +92,8 @@ if args.isMC:
 
 
 def addClusterCharge(iolcv, cluster, vertexPixels, vertexCharge, threshold):
-  evtImage2D = iolcv.get_data(larcv.kProductImage2D, "wire")
+  #evtImage2D = iolcv.get_data(larcv.kProductImage2D, "wire")
+  evtImage2D = iolcv.get_data("image2d", "wire")
   image2Dvec = evtImage2D.Image2DArray()
   clusterPixels = []
   clusterCharge = 0.
@@ -111,8 +114,10 @@ def addClusterCharge(iolcv, cluster, vertexPixels, vertexCharge, threshold):
 
 
 def getMCPartE(ioll, tid):
-  mctracks = ioll.get_data(larlite.data.kMCTrack, "mcreco")
-  mcshowers = ioll.get_data(larlite.data.kMCShower, "mcreco")
+  #mctracks = ioll.get_data(larlite.data.kMCTrack, "mcreco")
+  #mcshowers = ioll.get_data(larlite.data.kMCShower, "mcreco")
+  mctracks = ioll.get_data("mctrack", "mcreco")
+  mcshowers = ioll.get_data("mcshower", "mcreco")
   for mcparticles in [mctracks, mcshowers]:
     for mcpart in mcparticles:
       if mcpart.TrackID() == tid:
@@ -346,8 +351,8 @@ if args.isMC:
   trueSimPartEndE = array('f', maxNParts*[0.])
   trueSimPartContained = array('i', maxNParts*[0])
   trueSimPartPixelSumUplane = array('f', maxNParts*[0.])
-  trueSumPartPixelSumVplane = array('f', maxNParts*[0.])
-  trueSumPartPixelSumYplane = array('f', maxNParts*[0.])
+  trueSimPartPixelSumVplane = array('f', maxNParts*[0.])
+  trueSimPartPixelSumYplane = array('f', maxNParts*[0.])
   
 recoNuE = array('f', [0.])
 foundVertex = array('i', [0])
@@ -685,7 +690,8 @@ for filepair in files:
 
       mcpg.clear()
           
-      mctruth = ioll.get_data(larlite.data.kMCTruth, "generator")
+      #mctruth = ioll.get_data(larlite.data.kMCTruth, "generator")
+      mctruth = ioll.get_data("mctruth", "generator")      
       nuInt = mctruth.at(0).GetNeutrino()
       lep = nuInt.Lepton()
       mcNuVertex = mcNuVertexer.getPos3DwSCE(ioll, sce)
@@ -699,8 +705,10 @@ for filepair in files:
       if not isFiducialWCSCE(trueVtxPos):
         # tmw 07/22/2024: do we want to remove out of FV events?
         # you can still get incorrectly reconstructed neutrino interactions
-        # from such events -- not just cosmic events
-        continue
+        # from such events -- not just cosmic events.
+        # for example: photons entering from outside, tracks entering and reconstructed on border
+        # continue
+        pass
 
       if args.ignoreWeights:
         xsecWeight[0] = 1.
@@ -750,8 +758,10 @@ for filepair in files:
           truePrimPartContained[iPP] = isFiducialWCSCE(sceCorrectedEndPos)
           iPP += 1
 
-      mctracks = ioll.get_data(larlite.data.kMCTrack, "mcreco")
-      mcshowers = ioll.get_data(larlite.data.kMCShower, "mcreco")
+      #mctracks = ioll.get_data(larlite.data.kMCTrack, "mcreco")
+      #mcshowers = ioll.get_data(larlite.data.kMCShower, "mcreco")
+      mctracks = ioll.get_data("mctrack", "mcreco")
+      mcshowers = ioll.get_data("mcshower", "mcreco")
 
       nTrueSimParts[0] = 0
       iDS = 0
@@ -794,17 +804,26 @@ for filepair in files:
           trueSimPartContained[iDS] = isFiducialWCSCE(sceCorrectedEndPos)
 
           # mcpixelpgraph
-          plane_pixel_sums_v = mcpg.getParticlePixelSum( mcpart.TrackID() )
+          #plane_pixel_sums_v = mcpg.getTruePhotonTrunkPlanePixelSums( mcpart.TrackID() )
           if mcpart.PdgCode()==22:
-            photon_edep_v = mcpg.getParticleEdepPos( mcpart.TrackID() )
+            photon_edep_v = mcpg.getParticleEDepPos( mcpart.TrackID() )
             trueSimPartEDepX[iDS] = photon_edep_v[0]
             trueSimPartEDepY[iDS] = photon_edep_v[1]
             trueSimPartEDepZ[iDS] = photon_edep_v[2]
             photon_trunk_endpts_v = photonTruthMetrics.getPhotonTrunkLineSegment( mcpg, mcpart.TrackID() )
             trueSimPartEndX[iDS] = photon_edep_v[0] + ( photon_trunk_endpts_v[3]-photon_trunk_endpts_v[0] )
-            trueSumPartEndY[iDS] = photon_edep_v[1] + ( photon_trunk_endpts_v[4]-photon_trunk_endpts_v[1] )
-            trueSumPartEndZ[iDS] = photon_edep_v[2] + ( photon_trunk_endpts_v[5]-photon_trunk_endpts_v[2] )
+            trueSimPartEndY[iDS] = photon_edep_v[1] + ( photon_trunk_endpts_v[4]-photon_trunk_endpts_v[1] )
+            trueSimPartEndZ[iDS] = photon_edep_v[2] + ( photon_trunk_endpts_v[5]-photon_trunk_endpts_v[2] )
             photon_trunk_pixsum_v = mcpg.getTruePhotonTrunkPlanePixelSums( mcpart.TrackID() )
+            if photon_trunk_pixsum_v.size()==3:
+              trueSimPartPixelSumUplane[iDS] = photon_trunk_pixsum_v[0]
+              trueSimPartPixelSumVplane[iDS] = photon_trunk_pixsum_v[1]
+              trueSimPartPixelSumYplane[iDS] = photon_trunk_pixsum_v[2]
+            else:
+              trueSimPartPixelSumUplane[iDS] = 0.0
+              trueSimPartPixelSumVplane[iDS] = 0.0
+              trueSimPartPixelSumYplane[iDS] = 0.0
+              
             
           iDS += 1
 
@@ -896,19 +915,17 @@ for filepair in files:
       for iPrj in range(5):
         eventPCProjMaxGap[iPrj] = -9.
         eventPCProjMaxDist[iPrj] = -9.
+      # Stop here
       eventTree.Fill()
       continue
 
     if args.isMC:
-      vtxDistToTrue[0] = getVertexDistance(trueVtxPos, vertex)
       mcpg = ublarcvapp.mctools.MCPixelPGraph()
       mcpg.set_adc_treename("wire")
       mcpg.buildgraph(iolcv, ioll)
       mcpm = ublarcvapp.mctools.MCPixelPMap()
       mcpm.set_adc_treename("wire")
       mcpm.buildmap(iolcv, mcpg)
-    #else:
-    #  vtxDistToTrue[0] = -99.
 
     vtxX[0] = vertex.pos[0]
     vtxY[0] = vertex.pos[1]
@@ -928,8 +945,10 @@ for filepair in files:
     nTracks[0] = vertex.track_v.size()
     nShowers[0] = vertex.shower_v.size()
 
-    evtImage2D = iolcv.get_data(larcv.kProductImage2D, "wire")
-    csmImage2D = iolcv.get_data(larcv.kProductImage2D, "thrumu")
+    #evtImage2D = iolcv.get_data(larcv.kProductImage2D, "wire")
+    #csmImage2D = iolcv.get_data(larcv.kProductImage2D, "thrumu")
+    evtImage2D = iolcv.get_data("image2d", "wire")
+    csmImage2D = iolcv.get_data("image2d", "thrumu")
     adc_v = evtImage2D.Image2DArray()
     thrumu_v = csmImage2D.Image2DArray()
 
