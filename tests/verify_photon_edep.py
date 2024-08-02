@@ -128,7 +128,8 @@ for ientry in range( start_entry, end_entry ):
     # this information can tell us
     # (1) a better first energy deposit location for photons
     # (2) a better measure of how much energy has been deposited in the TPC
-    mcpg.buildgraph( iolcv, ioll )        
+    mcpg.buildgraph( iolcv, ioll )
+    mcpg.printGraph(0,False)    
 
     # look for photons and extract info from simulation truth
     # using MCPixelPGraph and same helper class larflow.reco.ShowerTruth
@@ -155,14 +156,14 @@ for ientry in range( start_entry, end_entry ):
         if tree.trueSimPartPDG[ids]!=22:
             continue
 
-        if tree.trueSimPartTID[ids] not in mcpg_photon_starts:
+        tid = tree.trueSimPartTID[ids]        
+        if tid not in mcpg_photon_starts:
             continue
 
-        tid = tree.trueSimPartTID[ids]
         match_edep   = True
         ntuple_photon_ends[tid] = [0.0,0.0,0.0]
         for v,pos in enumerate([tree.trueSimPartEDepX[ids], tree.trueSimPartEDepY[ids], tree.trueSimPartEDepZ[ids] ]):
-            edep_diff = fabs( pos-mcpg_photon_starts[ tree.trueSimPartTID[ids] ][v] )
+            edep_diff = fabs( pos-mcpg_photon_starts[ tid ][v] )
             if edep_diff>1.0e-5:
                 match_edep = False
         for v,pos in enumerate([tree.trueSimPartEndX[ids],tree.trueSimPartEndY[ids], tree.trueSimPartEndZ[ids]]):
@@ -199,7 +200,8 @@ for ientry in range( start_entry, end_entry ):
         c.Draw()
         c.Update()
         # we zoom around the photon start position
-        for iphoton,tid in enumerate( mcpg_photon_starts ):
+        iphoton = 0
+        for tid in mcpg_photon_starts:
             text_v = []
             marker_v = []
             
@@ -208,6 +210,10 @@ for ientry in range( start_entry, end_entry ):
                 trunk_end = ntuple_photon_ends[tid]
                 end_imgpos = ublarcvapp.mctools.MCPos2ImageUtils.Get().to_imagepos( trunk_end[0], trunk_end[1], trunk_end[2], 0.0 )
             else:
+                print("WEIRD: tid=",tid," not in ntuple_photon_ends.")
+                print("ntuple_photon_ends keys: ")
+                for k,v in ntuple_photon_ends.items():
+                    print("  ",k," : ",v)
                 end_imgpos = None
             
             for p in range(3):

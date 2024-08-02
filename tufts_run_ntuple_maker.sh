@@ -7,7 +7,7 @@ ubdlDir="/cluster/tufts/wongjiradlabnu/twongj01/gen2/ubdl"
 outDir="/cluster/tufts/wongjiradlabnu/twongj01/gen2/gen2ntuple/out"
 logDir="/cluster/tufts/wongjiradlabnu/twongj01/gen2/gen2ntuple/log"
 
-pythonScript="${scriptDir}/$1"
+pythonScript="${scriptDir}/$1 -nkp"
 
 kpsRecoFiles=$2
 mdlRecoFiles=$3
